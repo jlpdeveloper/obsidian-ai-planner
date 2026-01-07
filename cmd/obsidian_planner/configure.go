@@ -27,6 +27,7 @@ type configureModel struct {
 	focusIndex int
 	inputs     []textinput.Model
 	cursorMode cursor.Mode
+	submitted  bool
 }
 
 func initialConfigureModel() configureModel {
@@ -70,6 +71,9 @@ func (m configureModel) Init() tea.Cmd {
 func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.submitted {
+			return m, tea.Quit
+		}
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
@@ -91,12 +95,9 @@ func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s := msg.String()
 
 			// Did the user press enter while the submit button was focused?
-			// If so, exit.
 			if s == "enter" && m.focusIndex == len(m.inputs) {
-				for _, i := range m.inputs {
-					fmt.Println(i.Value())
-				}
-				return m, tea.Quit
+				m.submitted = true
+				return m, nil
 			}
 
 			// Cycle indexes
@@ -150,6 +151,13 @@ func (m *configureModel) updateInputs(msg tea.Msg) tea.Cmd {
 }
 
 func (m configureModel) View() string {
+	if m.submitted {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("10")).
+			Render("\n  Configuration saved successfully!\n\n  Press any key to exit.")
+	}
+
 	var b strings.Builder
 
 	for i := range m.inputs {
