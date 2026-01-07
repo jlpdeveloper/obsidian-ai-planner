@@ -4,7 +4,9 @@ import (
 	"fmt"
 	_ "log"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,9 +26,15 @@ type chatModel struct {
 	senderStyle lipgloss.Style
 	err         error
 	initialMsg  string
+	spinner     spinner.Model
+	loading     bool
 }
 
 func initialChatModel(initialMsg string) chatModel {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
@@ -55,6 +63,8 @@ Type a message and press Enter to send.`)
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 		err:         nil,
 		initialMsg:  initialMsg,
+		spinner:     s,
+		loading:     false,
 	}
 }
 
@@ -70,7 +80,7 @@ func cmdWithStr(s string) tea.Cmd {
 }
 
 func (m chatModel) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, cmdWithStr(m.initialMsg))
+	return tea.Batch(textarea.Blink, m.spinner.Tick, cmdWithStr(m.initialMsg))
 }
 
 func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -82,10 +92,15 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.textarea, tiCmd = m.textarea.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
+	var spCmd tea.Cmd
+	m.spinner, spCmd = m.spinner.Update(msg)
+
 	switch msg := msg.(type) {
 	case cmdArgMsg:
+		m.loading = false
 		m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+string(msg))
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.viewport.GotoBottom()
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width
 		m.textarea.SetWidth(msg.Width)
@@ -102,10 +117,21 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Println(m.textarea.Value())
 			return m, tea.Quit
 		case tea.KeyEnter:
-			m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
-			m.textarea.Reset()
-			m.viewport.GotoBottom()
+			if m.textarea.Value() != "" {
+				m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
+				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+				m.textarea.Reset()
+				m.viewport.GotoBottom()
+				m.loading = true
+				return m, tea.Batch(
+					tiCmd,
+					vpCmd,
+					spCmd,
+					tea.Tick(time.Second, func(t time.Time) tea.Msg {
+						return cmdArgMsg("Message received!")
+					}),
+				)
+			}
 		}
 
 	// We handle errors just like any other message
@@ -114,14 +140,20 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, tea.Batch(tiCmd, vpCmd)
+	return m, tea.Batch(tiCmd, vpCmd, spCmd)
 }
 
 func (m chatModel) View() string {
+	var s string
+	if m.loading {
+		s = m.spinner.View() + " Thinking..."
+	} else {
+		s = m.textarea.View()
+	}
 	return fmt.Sprintf(
 		"%s%s%s",
 		m.viewport.View(),
 		gap,
-		m.textarea.View(),
+		s,
 	)
 }
