@@ -39,7 +39,7 @@ func initialConfigureModel() configureModel {
 	for i := range m.inputs {
 		t = textinput.New()
 		t.Cursor.Style = cursorStyle
-		t.CharLimit = 32
+		t.CharLimit = 128
 		//this allows the full place holder to show up
 		t.Width = 20
 		switch i {
