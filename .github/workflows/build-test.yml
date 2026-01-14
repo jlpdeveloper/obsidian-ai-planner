@@ -32,7 +32,7 @@ jobs:
       - name: build
         shell: bash
         run: |
-          go build -o obsidian_planner cmd/obsidian_planner
+          go build -o obsidian_planner ./cmd/obsidian_planner
   test:
     needs: [build]
     permissions:
