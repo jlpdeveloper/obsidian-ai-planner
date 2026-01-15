@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"obsidian-ai-planner/configuration"
 )
 
 var (
@@ -35,6 +36,9 @@ func initialConfigureModel() configureModel {
 		inputs: make([]textinput.Model, 3),
 	}
 
+	cfg := &configuration.Config{}
+	_ = cfg.LoadFromFile()
+
 	var t textinput.Model
 	for i := range m.inputs {
 		t = textinput.New()
@@ -45,15 +49,18 @@ func initialConfigureModel() configureModel {
 		switch i {
 		case 0:
 			t.Placeholder = "iCal Url"
+			t.SetValue(cfg.CalendarUrl)
 			t.Focus()
 			t.PromptStyle = focusedStyle
 			t.TextStyle = focusedStyle
 			t.Width = 20
 		case 1:
 			t.Placeholder = "Jira Email"
+			t.SetValue(cfg.JiraEmail)
 			t.CharLimit = 64
 		case 2:
 			t.Placeholder = "Jira API Key"
+			t.SetValue(cfg.JiraToken)
 			t.EchoMode = textinput.EchoPassword
 			t.EchoCharacter = '•'
 		}
@@ -97,6 +104,12 @@ func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Did the user press enter while the submit button was focused?
 			if s == "enter" && m.focusIndex == len(m.inputs) {
 				m.submitted = true
+				cfg := &configuration.Config{
+					CalendarUrl: m.inputs[0].Value(),
+					JiraEmail:   m.inputs[1].Value(),
+					JiraToken:   m.inputs[2].Value(),
+				}
+				_ = cfg.Write()
 				return m, nil
 			}
 
