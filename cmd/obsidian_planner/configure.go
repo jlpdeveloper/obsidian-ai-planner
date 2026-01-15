@@ -5,11 +5,12 @@ import (
 	_ "os"
 	"strings"
 
+	"obsidian-ai-planner/configuration"
+
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"obsidian-ai-planner/configuration"
 )
 
 var (
@@ -29,6 +30,7 @@ type configureModel struct {
 	inputs     []textinput.Model
 	cursorMode cursor.Mode
 	submitted  bool
+	err        error
 }
 
 func initialConfigureModel() configureModel {
@@ -109,7 +111,10 @@ func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					JiraEmail:   m.inputs[1].Value(),
 					JiraToken:   m.inputs[2].Value(),
 				}
-				_ = cfg.Write()
+				err := cfg.Write()
+				if err != nil {
+					m.err = err
+				}
 				return m, nil
 			}
 
@@ -165,6 +170,12 @@ func (m *configureModel) updateInputs(msg tea.Msg) tea.Cmd {
 
 func (m configureModel) View() string {
 	if m.submitted {
+		if m.err != nil {
+			return lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("208")).
+				Render(fmt.Sprintf("\n  Error saving configuration: %s\n\n  Press any key to exit.", m.err))
+		}
 		return lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("10")).
