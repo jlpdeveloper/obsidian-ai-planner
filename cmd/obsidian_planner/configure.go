@@ -5,6 +5,8 @@ import (
 	_ "os"
 	"strings"
 
+	"obsidian-ai-planner/configuration"
+
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,12 +30,16 @@ type configureModel struct {
 	inputs     []textinput.Model
 	cursorMode cursor.Mode
 	submitted  bool
+	err        error
 }
 
 func initialConfigureModel() configureModel {
 	m := configureModel{
 		inputs: make([]textinput.Model, 3),
 	}
+
+	cfg := &configuration.Config{}
+	_ = cfg.LoadFromFile()
 
 	var t textinput.Model
 	for i := range m.inputs {
@@ -45,15 +51,18 @@ func initialConfigureModel() configureModel {
 		switch i {
 		case 0:
 			t.Placeholder = "iCal Url"
+			t.SetValue(cfg.CalendarUrl)
 			t.Focus()
 			t.PromptStyle = focusedStyle
 			t.TextStyle = focusedStyle
 			t.Width = 20
 		case 1:
 			t.Placeholder = "Jira Email"
+			t.SetValue(cfg.JiraEmail)
 			t.CharLimit = 64
 		case 2:
 			t.Placeholder = "Jira API Key"
+			t.SetValue(cfg.JiraToken)
 			t.EchoMode = textinput.EchoPassword
 			t.EchoCharacter = '•'
 		}
@@ -97,6 +106,15 @@ func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Did the user press enter while the submit button was focused?
 			if s == "enter" && m.focusIndex == len(m.inputs) {
 				m.submitted = true
+				cfg := &configuration.Config{
+					CalendarUrl: m.inputs[0].Value(),
+					JiraEmail:   m.inputs[1].Value(),
+					JiraToken:   m.inputs[2].Value(),
+				}
+				err := cfg.Write()
+				if err != nil {
+					m.err = err
+				}
 				return m, nil
 			}
 
@@ -152,6 +170,12 @@ func (m *configureModel) updateInputs(msg tea.Msg) tea.Cmd {
 
 func (m configureModel) View() string {
 	if m.submitted {
+		if m.err != nil {
+			return lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("208")).
+				Render(fmt.Sprintf("\n  Error saving configuration: %s\n\n  Press any key to exit.", m.err))
+		}
 		return lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("10")).
