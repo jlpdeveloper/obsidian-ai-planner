@@ -18,6 +18,7 @@ import (
 const gap = "\n\n"
 
 var cal *calendar.GoogleCalendarIntegration
+var calendarEvents []calendar.Event
 
 func Today() time.Time {
 	now := time.Now()
@@ -47,7 +48,9 @@ func initialChatModel(initialMsg string) chatModel {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	cal = calendar.New(ctx)
-	events, err := cal.GetCalendarEvents(Today())
+	//replace _ with calendarEvents when ready to send to LLM
+	_, err := cal.GetCalendarEvents(Today())
+
 	if err != nil {
 		return chatModel{err: err}
 	}
@@ -67,21 +70,17 @@ func initialChatModel(initialMsg string) chatModel {
 	ta.ShowLineNumbers = false
 
 	vp := viewport.New(30, 5)
-	initMsg := `Welcome to the chat room!
-Type a message and press Enter to send.
-Events Today:`
+	initMsg := `Welcome to the obsidian planner!
+Type a message and press Enter to send.`
 
-	for _, e := range events {
-		if e.EventType == "event" {
-			initMsg += "\n" + e.Summary
-		}
-	}
 	vp.SetContent(initMsg)
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	return chatModel{
-		textarea:    ta,
-		messages:    []string{},
+		textarea: ta,
+		messages: []string{
+			initMsg,
+		},
 		viewport:    vp,
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 		err:         nil,

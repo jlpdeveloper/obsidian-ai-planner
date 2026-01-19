@@ -11,18 +11,45 @@ import (
 	"google.golang.org/api/option"
 )
 
+type Event struct {
+	Name  string `json:"name"`
+	Start string `json:"start"`
+	End   string `json:"end"`
+	Type  string `json:"type"`
+}
+
+func filterEvents(events []*calendar.Event) []Event {
+	validEventTypes := make(map[string]struct{})
+	validEventTypes["event"] = struct{}{}
+	validEventTypes["focusTime"] = struct{}{}
+	var filteredEvents []Event
+	for _, e := range events {
+		if _, ok := validEventTypes[e.EventType]; ok {
+			filteredEvents = append(filteredEvents, Event{
+				Name:  e.Summary,
+				Start: e.Start.DateTime,
+				End:   e.End.DateTime,
+				Type:  e.EventType,
+			})
+		}
+	}
+
+	return filteredEvents
+}
+
 type GoogleCalendarIntegration struct {
 	calendarService *calendar.Service
 }
 
-func (c GoogleCalendarIntegration) GetCalendarEvents(start time.Time) ([]*calendar.Event, error) {
-	t := start.Format(time.RFC3339)
+func (c GoogleCalendarIntegration) GetCalendarEvents(start time.Time) ([]Event, error) {
+	minTime := start.Format(time.RFC3339)
+	maxTime := start.Add(24 * time.Hour).Format(time.RFC3339)
 	events, err := c.calendarService.Events.List("primary").ShowDeleted(false).
-		SingleEvents(true).TimeMin(t).MaxResults(10).OrderBy("startTime").Do()
+		SingleEvents(true).TimeMin(minTime).TimeMax(maxTime).MaxResults(10).OrderBy("startTime").Do()
 	if err != nil {
 		return nil, err
 	}
-	return events.Items, nil
+	return filterEvents(events.Items), nil
 }
 
 func New(ctx context.Context) *GoogleCalendarIntegration {
