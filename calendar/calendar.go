@@ -25,10 +25,18 @@ func filterEvents(events []*calendar.Event) []Event {
 	var filteredEvents []Event
 	for _, e := range events {
 		if _, ok := validEventTypes[e.EventType]; ok {
+			start := e.Start.DateTime
+			if start == "" {
+				start = e.Start.Date
+			}
+			end := e.End.DateTime
+			if end == "" {
+				end = e.End.Date
+			}
 			filteredEvents = append(filteredEvents, Event{
 				Name:  e.Summary,
-				Start: e.Start.DateTime,
-				End:   e.End.DateTime,
+				Start: start,
+				End:   end,
 				Type:  e.EventType,
 			})
 		}
