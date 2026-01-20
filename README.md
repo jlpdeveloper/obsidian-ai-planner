@@ -50,3 +50,6 @@ This project uses GitHub Actions for continuous integration:
 ## Project Tracking
 This project is also an experiment in using [Fizzy](https://app.fizzy.do/6130918/public/boards/EcoT3co8ffcS6zpMuFbfFYbX), 
 all work will be tracked there.
+
+## Links
+- [Google Calendar Quick Start](https://developers.google.com/workspace/calendar/api/quickstart/go)

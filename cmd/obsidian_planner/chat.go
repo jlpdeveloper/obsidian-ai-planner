@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	_ "log"
+	"obsidian-ai-planner/calendar"
 	"strings"
 	"time"
 
@@ -14,6 +16,15 @@ import (
 )
 
 const gap = "\n\n"
+
+var cal *calendar.GoogleCalendarIntegration
+var calendarEvents []calendar.Event
+
+func Today() time.Time {
+	now := time.Now()
+	year, month, day := now.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, now.Location())
+}
 
 type (
 	errMsg error
@@ -31,10 +42,18 @@ type chatModel struct {
 }
 
 func initialChatModel(initialMsg string) chatModel {
+	ctx := context.Background()
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
+	cal = calendar.New(ctx)
+	//replace _ with calendarEvents when ready to send to LLM
+	_, err := cal.GetCalendarEvents(Today())
+
+	if err != nil {
+		return chatModel{err: err}
+	}
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
@@ -51,14 +70,17 @@ func initialChatModel(initialMsg string) chatModel {
 	ta.ShowLineNumbers = false
 
 	vp := viewport.New(30, 5)
-	vp.SetContent(`Welcome to the chat room!
-Type a message and press Enter to send.`)
+	initMsg := `Welcome to the obsidian planner!
+Type a message and press Enter to send.`
 
+	vp.SetContent(initMsg)
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	return chatModel{
-		textarea:    ta,
-		messages:    []string{},
+		textarea: ta,
+		messages: []string{
+			initMsg,
+		},
 		viewport:    vp,
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 		err:         nil,
