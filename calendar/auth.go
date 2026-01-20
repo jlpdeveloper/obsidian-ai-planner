@@ -65,9 +65,9 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 	// However, Google allows http://localhost without a port for some app types,
 	// but it's better to be explicit if we can.
 	// Looking at the redirect_uris: ["http://localhost"]
-
-	server := &http.Server{Addr: ":8888", Handler: handler}
-	config.RedirectURL = "http://localhost:8888"
+	port := "8888"
+	config.RedirectURL = "http://localhost:" + port
+	server := &http.Server{Addr: "localhost:" + port, Handler: handler}
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -110,7 +110,7 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	defer func() {
 		errClose := f.Close()
 		if errClose != nil {
-			log.Fatalf("Error closing token file: %v", err)
+			log.Fatalf("Error closing token file: %v", errClose)
 		}
 	}()
 	tok := &oauth2.Token{}
@@ -128,7 +128,7 @@ func saveToken(path string, token *oauth2.Token) {
 	defer func() {
 		errClose := f.Close()
 		if errClose != nil {
-			log.Fatalf("Error closing token file: %v", err)
+			log.Fatalf("Error closing token file: %v", errClose)
 		}
 	}()
 	if err := json.NewEncoder(f).Encode(token); err != nil {
