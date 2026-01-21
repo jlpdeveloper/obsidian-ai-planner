@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "log"
 	"obsidian-ai-planner/calendar"
+	"obsidian-ai-planner/local_ai"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ type chatModel struct {
 	initialMsg  string
 	spinner     spinner.Model
 	loading     bool
+	modelInfo   *local_ai.ModelInfo
 }
 
 func initialChatModel(initialMsg string) chatModel {
@@ -49,11 +51,16 @@ func initialChatModel(initialMsg string) chatModel {
 
 	cal = calendar.New(ctx)
 	//replace _ with calendarEvents when ready to send to LLM
-	_, err := cal.GetCalendarEvents(Today())
+	var err error
+	calendarEvents, err = cal.GetCalendarEvents(Today())
 
 	if err != nil {
 		return chatModel{err: err}
 	}
+
+	modelInfo := local_ai.NewOllamaModel(ctx)
+	local_ai.DefinePlannerFlow(modelInfo)
+
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
@@ -87,6 +94,7 @@ Type a message and press Enter to send.`
 		initialMsg:  initialMsg,
 		spinner:     s,
 		loading:     false,
+		modelInfo:   modelInfo,
 	}
 }
 
@@ -103,6 +111,27 @@ func cmdWithStr(s string) tea.Cmd {
 
 func (m chatModel) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, m.spinner.Tick, cmdWithStr(m.initialMsg))
+}
+
+func (m chatModel) runPlannerFlow(userPrompt string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		input := local_ai.PlannerInput{
+			WeeklyGoals:  "", // TODO: Pull from Obsidian
+			Calendar:     calendarEvents,
+			JiraTickets:  []string{}, // TODO: Pull from Jira
+			CurrentTasks: []string{}, // TODO: Pull from Daily Note
+			UserPrompt:   userPrompt,
+		}
+		input.JiraTickets = append(input.JiraTickets, "Sample Jira Ticket")
+
+		resp, err := m.modelInfo.GeneratePlan(ctx, input)
+		if err != nil {
+			return errMsg(err)
+		}
+
+		return cmdArgMsg(resp)
+	}
 }
 
 func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -140,7 +169,8 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if m.textarea.Value() != "" {
-				m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
+				userMsg := m.textarea.Value()
+				m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
 				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 				m.textarea.Reset()
 				m.viewport.GotoBottom()
@@ -149,9 +179,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					tiCmd,
 					vpCmd,
 					spCmd,
-					tea.Tick(time.Second, func(t time.Time) tea.Msg {
-						return cmdArgMsg("Message received!")
-					}),
+					m.runPlannerFlow(userMsg),
 				)
 			}
 		}
@@ -159,6 +187,10 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// We handle errors just like any other message
 	case errMsg:
 		m.err = msg
+		m.loading = false
+		m.messages = append(m.messages, m.senderStyle.Render("Error: ")+msg.Error())
+		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.viewport.GotoBottom()
 		return m, nil
 	}
 

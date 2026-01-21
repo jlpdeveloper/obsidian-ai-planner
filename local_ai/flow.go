@@ -22,9 +22,8 @@ type PlannerInput struct {
 	UserPrompt   string           `json:"userPrompt"`
 }
 
-func DefinePlannerFlow(g *genkit.Genkit, model ai.Model) {
-	genkit.DefineFlow(g, "plannerFlow", func(ctx context.Context, input PlannerInput) (string, error) {
-		prompt := fmt.Sprintf(`
+func (m *ModelInfo) GeneratePlan(ctx context.Context, input PlannerInput) (string, error) {
+	prompt := fmt.Sprintf(`
 You are a personal AI planner. Your goal is to help a software engineer plan their day.
 Current Weekly Goals:
 %s
@@ -43,14 +42,19 @@ User says: %s
 Please propose a plan for the day, specifically updating the 'Goals', 'Meetings', and 'Bonus Items' sections as needed.
 `, input.WeeklyGoals, input.Calendar, input.JiraTickets, input.CurrentTasks, input.UserPrompt)
 
-		resp, err := genkit.Generate(ctx, g,
-			ai.WithModel(model),
-			ai.WithPrompt(prompt),
-		)
-		if err != nil {
-			return "", err
-		}
+	resp, err := genkit.Generate(ctx, m.GenKit,
+		ai.WithModel(m.Model),
+		ai.WithPrompt(prompt),
+	)
+	if err != nil {
+		return "", err
+	}
 
-		return resp.Text(), nil
+	return resp.Text(), nil
+}
+
+func DefinePlannerFlow(m *ModelInfo) {
+	genkit.DefineFlow(m.GenKit, "plannerFlow", func(ctx context.Context, input PlannerInput) (string, error) {
+		return m.GeneratePlan(ctx, input)
 	})
 }
