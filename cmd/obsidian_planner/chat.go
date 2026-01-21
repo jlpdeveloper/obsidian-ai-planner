@@ -158,6 +158,19 @@ func (m *chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
 	}
 }
 
+type condenseMsg string
+
+func (m *chatModel) runCondenseFlow() tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		resp, err := m.modelInfo.Condense(ctx, m.history)
+		if err != nil {
+			return errMsg(err)
+		}
+		return condenseMsg(resp)
+	}
+}
+
 func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
@@ -171,6 +184,14 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.spinner, spCmd = m.spinner.Update(msg)
 
 	switch msg := msg.(type) {
+	case condenseMsg:
+		m.loading = false
+		summary := string(msg)
+		// Reset history and append summary as the first message
+		m.history = []local_ai.Message{{Role: "model", Content: "Summary of previous conversation: " + summary}}
+		m.messages = []string{m.senderStyle.Render("Bot: ") + "Condensing conversation completed. Context cleared and summary added."}
+		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.viewport.GotoBottom()
 	case cmdArgMsg:
 		m.loading = false
 		m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+string(msg))
@@ -195,6 +216,20 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if m.textarea.Value() != "" {
 				userMsg := m.textarea.Value()
+				if strings.TrimSpace(strings.ToLower(userMsg)) == "/condense" {
+					m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
+					m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+"Condensing conversation...")
+					m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+					m.textarea.Reset()
+					m.viewport.GotoBottom()
+					m.loading = true
+					return m, tea.Batch(
+						tiCmd,
+						vpCmd,
+						spCmd,
+						m.runCondenseFlow(),
+					)
+				}
 				m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
 				m.history = append(m.history, local_ai.Message{Role: "user", Content: userMsg})
 				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))

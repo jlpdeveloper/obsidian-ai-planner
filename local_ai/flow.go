@@ -99,6 +99,31 @@ Be specific and professional. Use Markdown format.
 	return resp.Text(), nil
 }
 
+func (m *ModelInfo) Condense(ctx context.Context, history []Message) (string, error) {
+	systemPrompt := "You are a helpful assistant. Summarize the following conversation history concisely, preserving all key decisions, tasks, and context. This summary will be used as the starting point for a new conversation session."
+
+	var messages []*ai.Message
+	messages = append(messages, ai.NewSystemMessage(ai.NewTextPart(systemPrompt)))
+
+	for _, msg := range history {
+		if msg.Role == "user" {
+			messages = append(messages, ai.NewUserMessage(ai.NewTextPart(msg.Content)))
+		} else if msg.Role == "model" || msg.Role == "bot" || msg.Role == "assistant" {
+			messages = append(messages, ai.NewModelMessage(ai.NewTextPart(msg.Content)))
+		}
+	}
+
+	resp, err := genkit.Generate(ctx, m.GenKit,
+		ai.WithModel(m.Model),
+		ai.WithMessages(messages...),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Text(), nil
+}
+
 func DefinePlannerFlow(m *ModelInfo) {
 	genkit.DefineFlow(m.GenKit, "plannerFlow", func(ctx context.Context, input PlannerInput) (string, error) {
 		return m.GeneratePlan(ctx, input)
