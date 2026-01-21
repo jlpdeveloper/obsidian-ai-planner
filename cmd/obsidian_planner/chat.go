@@ -113,7 +113,28 @@ func (m chatModel) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, m.spinner.Tick, cmdWithStr(m.initialMsg))
 }
 
-func (m chatModel) runPlannerFlow(userPrompt string) tea.Cmd {
+func (m chatModel) runChatFlow(userPrompt string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		input := local_ai.PlannerInput{
+			WeeklyGoals:  "", // TODO: Pull from Obsidian
+			Calendar:     calendarEvents,
+			JiraTickets:  []string{}, // TODO: Pull from Jira
+			CurrentTasks: []string{}, // TODO: Pull from Daily Note
+			UserPrompt:   userPrompt,
+		}
+		input.JiraTickets = append(input.JiraTickets, "Sample Jira Ticket")
+
+		resp, err := m.modelInfo.Chat(ctx, input)
+		if err != nil {
+			return errMsg(err)
+		}
+
+		return cmdArgMsg(resp)
+	}
+}
+
+func (m chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		input := local_ai.PlannerInput{
@@ -175,11 +196,17 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textarea.Reset()
 				m.viewport.GotoBottom()
 				m.loading = true
+				var cmd tea.Cmd
+				if strings.Contains(strings.ToLower(userMsg), "generate") {
+					cmd = m.runGenerateFlow(userMsg)
+				} else {
+					cmd = m.runChatFlow(userMsg)
+				}
 				return m, tea.Batch(
 					tiCmd,
 					vpCmd,
 					spCmd,
-					m.runPlannerFlow(userMsg),
+					cmd,
 				)
 			}
 		}
