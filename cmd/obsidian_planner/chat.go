@@ -34,6 +34,7 @@ type (
 type chatModel struct {
 	viewport    viewport.Model
 	messages    []string
+	history     []local_ai.Message
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
 	err         error
@@ -113,7 +114,7 @@ func (m chatModel) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, m.spinner.Tick, cmdWithStr(m.initialMsg))
 }
 
-func (m chatModel) runChatFlow(userPrompt string) tea.Cmd {
+func (m *chatModel) runChatFlow(userPrompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		input := local_ai.PlannerInput{
@@ -122,6 +123,7 @@ func (m chatModel) runChatFlow(userPrompt string) tea.Cmd {
 			JiraTickets:  []string{}, // TODO: Pull from Jira
 			CurrentTasks: []string{}, // TODO: Pull from Daily Note
 			UserPrompt:   userPrompt,
+			History:      m.history,
 		}
 		input.JiraTickets = append(input.JiraTickets, "Sample Jira Ticket")
 
@@ -134,7 +136,7 @@ func (m chatModel) runChatFlow(userPrompt string) tea.Cmd {
 	}
 }
 
-func (m chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
+func (m *chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		input := local_ai.PlannerInput{
@@ -143,6 +145,7 @@ func (m chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
 			JiraTickets:  []string{}, // TODO: Pull from Jira
 			CurrentTasks: []string{}, // TODO: Pull from Daily Note
 			UserPrompt:   userPrompt,
+			History:      m.history,
 		}
 		input.JiraTickets = append(input.JiraTickets, "Sample Jira Ticket")
 
@@ -171,6 +174,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case cmdArgMsg:
 		m.loading = false
 		m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+string(msg))
+		m.history = append(m.history, local_ai.Message{Role: "model", Content: string(msg)})
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.viewport.GotoBottom()
 	case tea.WindowSizeMsg:
@@ -192,6 +196,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.textarea.Value() != "" {
 				userMsg := m.textarea.Value()
 				m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
+				m.history = append(m.history, local_ai.Message{Role: "user", Content: userMsg})
 				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 				m.textarea.Reset()
 				m.viewport.GotoBottom()

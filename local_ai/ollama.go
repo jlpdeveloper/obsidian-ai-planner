@@ -22,8 +22,8 @@ func NewOllamaModel(ctx context.Context) *ModelInfo {
 		},
 		&ai.ModelOptions{
 			Supports: &ai.ModelSupports{
-				Multiturn:  false,
-				SystemRole: false,
+				Multiturn:  true,
+				SystemRole: true,
 				Tools:      false,
 				Media:      false,
 			},
