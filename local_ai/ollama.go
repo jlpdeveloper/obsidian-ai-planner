@@ -17,8 +17,8 @@ func NewOllamaModel(ctx context.Context) *ModelInfo {
 
 	model := ollamaPlugin.DefineModel(g,
 		ollama.ModelDefinition{
-			Name: "gemma3",
-			Type: "generate", // "chat" or "generate"
+			Name: "llama3.1",
+			Type: "chat", // "chat" or "generate"
 		},
 		&ai.ModelOptions{
 			Supports: &ai.ModelSupports{

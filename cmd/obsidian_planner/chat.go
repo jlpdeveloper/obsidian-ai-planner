@@ -125,7 +125,8 @@ func (m *chatModel) runChatFlow(userPrompt string) tea.Cmd {
 			UserPrompt:   userPrompt,
 			History:      m.history,
 		}
-		input.JiraTickets = append(input.JiraTickets, "Sample Jira Ticket")
+		input.JiraTickets = append(input.JiraTickets, "Jira-123: Update db", "Jira-456: Fix bug on backend")
+		input.WeeklyGoals = "Plan for project unicorn, Review roadmap, Improve test coverage 10%"
 
 		resp, err := m.modelInfo.Chat(ctx, input)
 		if err != nil {

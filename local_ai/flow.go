@@ -30,7 +30,9 @@ type PlannerInput struct {
 
 func (m *ModelInfo) Chat(ctx context.Context, input PlannerInput) (string, error) {
 	systemPrompt := fmt.Sprintf(`
-You are a personal AI planner assistant. You are having a conversation with a software engineer about their day.
+You are a personal AI planner assistant. You are having a conversation with a software engineer about their day. 
+You have no access to outside tools and no awareness of exterior systems except with the data provided. 
+You should examine the weekly goals and infer if any Jira tickets align with them. 
 Current Weekly Goals: %s
 Calendar Events: %v
 Jira Tickets: %v
