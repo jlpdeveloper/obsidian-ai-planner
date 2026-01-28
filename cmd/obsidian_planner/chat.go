@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	_ "log"
-	"obsidian-ai-planner/calendar"
 	"obsidian-ai-planner/local_ai"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -17,15 +15,6 @@ import (
 )
 
 const gap = "\n\n"
-
-var cal *calendar.GoogleCalendarIntegration
-var calendarEvents []calendar.Event
-
-func Today() time.Time {
-	now := time.Now()
-	year, month, day := now.Date()
-	return time.Date(year, month, day, 0, 0, 0, 0, now.Location())
-}
 
 type (
 	errMsg error
@@ -49,15 +38,6 @@ func initialChatModel(initialMsg string) chatModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-
-	cal = calendar.New(ctx)
-	//replace _ with calendarEvents when ready to send to LLM
-	var err error
-	calendarEvents, err = cal.GetCalendarEvents(Today())
-
-	if err != nil {
-		return chatModel{err: err}
-	}
 
 	modelInfo := local_ai.NewOllamaModel(ctx)
 	local_ai.DefinePlannerFlow(modelInfo)
@@ -118,15 +98,9 @@ func (m *chatModel) runChatFlow(userPrompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		input := local_ai.PlannerInput{
-			WeeklyGoals:  "", // TODO: Pull from Obsidian
-			Calendar:     calendarEvents,
-			JiraTickets:  []string{}, // TODO: Pull from Jira
-			CurrentTasks: []string{}, // TODO: Pull from Daily Note
-			UserPrompt:   userPrompt,
-			History:      m.history,
+			UserPrompt: userPrompt,
+			History:    m.history,
 		}
-		input.JiraTickets = append(input.JiraTickets, "Jira-123: Update db", "Jira-456: Fix bug on backend")
-		input.WeeklyGoals = "Plan for project unicorn, Review roadmap, Improve test coverage 10%"
 
 		resp, err := m.modelInfo.Chat(ctx, input)
 		if err != nil {
@@ -141,14 +115,9 @@ func (m *chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		input := local_ai.PlannerInput{
-			WeeklyGoals:  "", // TODO: Pull from Obsidian
-			Calendar:     calendarEvents,
-			JiraTickets:  []string{}, // TODO: Pull from Jira
-			CurrentTasks: []string{}, // TODO: Pull from Daily Note
-			UserPrompt:   userPrompt,
-			History:      m.history,
+			UserPrompt: userPrompt,
+			History:    m.history,
 		}
-		input.JiraTickets = append(input.JiraTickets, "Sample Jira Ticket")
 
 		resp, err := m.modelInfo.GeneratePlan(ctx, input)
 		if err != nil {

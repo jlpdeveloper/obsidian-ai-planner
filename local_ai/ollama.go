@@ -2,6 +2,7 @@ package local_ai
 
 import (
 	"context"
+	"obsidian-ai-planner/calendar"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -31,7 +32,8 @@ func NewOllamaModel(ctx context.Context) *ModelInfo {
 	)
 
 	return &ModelInfo{
-		Model:  model,
-		GenKit: g,
+		Model:    model,
+		GenKit:   g,
+		Calendar: calendar.New(ctx),
 	}
 }
