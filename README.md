@@ -29,7 +29,7 @@ The system follows a predictable "Pull, Sanitize, Plan, Write" pipeline:
 
 ## Prerequisites
 
-- **Go:** 1.21 or higher.
+- **Go:** 1.25.4 or higher.
 - **Ollama:** Installed and running locally. [Download Ollama](https://ollama.com/).
 - **LLM Model:** The `llama3.1` model must be pulled in Ollama:
   ```bash
