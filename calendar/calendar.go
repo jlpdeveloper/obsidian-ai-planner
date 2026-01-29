@@ -2,7 +2,6 @@ package calendar
 
 import (
 	"context"
-	"log"
 	"os"
 	"time"
 
@@ -60,24 +59,24 @@ func (c GoogleCalendarIntegration) GetCalendarEvents(start time.Time) ([]Event, 
 	return filterEvents(events.Items), nil
 }
 
-func New(ctx context.Context) *GoogleCalendarIntegration {
+func New(ctx context.Context) (*GoogleCalendarIntegration, error) {
 	b, err := os.ReadFile("credentials.json")
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		return nil, err
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
 	config, err := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
 	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
+		return nil, err
 	}
 	client := getClient(config)
 
 	svr, err := calendar.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		log.Fatalf("Unable to retrieve Calendar client: %v", err)
+		return nil, err
 	}
 	return &GoogleCalendarIntegration{
 		calendarService: svr,
-	}
+	}, nil
 }

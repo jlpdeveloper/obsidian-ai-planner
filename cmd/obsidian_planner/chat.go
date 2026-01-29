@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	_ "log"
-	"obsidian-ai-planner/calendar"
+	"obsidian-ai-planner/local_ai"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -17,15 +16,6 @@ import (
 
 const gap = "\n\n"
 
-var cal *calendar.GoogleCalendarIntegration
-var calendarEvents []calendar.Event
-
-func Today() time.Time {
-	now := time.Now()
-	year, month, day := now.Date()
-	return time.Date(year, month, day, 0, 0, 0, 0, now.Location())
-}
-
 type (
 	errMsg error
 )
@@ -33,12 +23,14 @@ type (
 type chatModel struct {
 	viewport    viewport.Model
 	messages    []string
+	history     []local_ai.Message
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
 	err         error
 	initialMsg  string
 	spinner     spinner.Model
 	loading     bool
+	modelInfo   *local_ai.ModelInfo
 }
 
 func initialChatModel(initialMsg string) chatModel {
@@ -47,13 +39,19 @@ func initialChatModel(initialMsg string) chatModel {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	cal = calendar.New(ctx)
-	//replace _ with calendarEvents when ready to send to LLM
-	_, err := cal.GetCalendarEvents(Today())
-
+	modelInfo, err := local_ai.NewOllamaModel(ctx)
 	if err != nil {
-		return chatModel{err: err}
+		// Since initialChatModel is not designed to return an error,
+		// we can't easily propagate it here.
+		// However, NewOllamaModel currently only returns an error if
+		// something fundamentally fails in GenKit/Ollama setup which
+		// is unlikely given the current implementation (it always returns nil error).
+		// If it did return an error, we'd probably want to handle it in the model.
+		// For now, we'll just panic if it's a genuine failure.
+		panic(err)
 	}
+	local_ai.DefinePlannerFlow(modelInfo)
+
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
@@ -87,6 +85,7 @@ Type a message and press Enter to send.`
 		initialMsg:  initialMsg,
 		spinner:     s,
 		loading:     false,
+		modelInfo:   modelInfo,
 	}
 }
 
@@ -105,6 +104,53 @@ func (m chatModel) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, m.spinner.Tick, cmdWithStr(m.initialMsg))
 }
 
+func (m *chatModel) runChatFlow(userPrompt string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		input := local_ai.PlannerInput{
+			UserPrompt: userPrompt,
+			History:    m.history,
+		}
+
+		resp, err := m.modelInfo.Chat(ctx, input)
+		if err != nil {
+			return errMsg(err)
+		}
+
+		return cmdArgMsg(resp)
+	}
+}
+
+func (m *chatModel) runGenerateFlow(userPrompt string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		input := local_ai.PlannerInput{
+			UserPrompt: userPrompt,
+			History:    m.history,
+		}
+
+		resp, err := m.modelInfo.GeneratePlan(ctx, input)
+		if err != nil {
+			return errMsg(err)
+		}
+
+		return cmdArgMsg(resp)
+	}
+}
+
+type condenseMsg string
+
+func (m *chatModel) runCondenseFlow() tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		resp, err := m.modelInfo.Condense(ctx, m.history)
+		if err != nil {
+			return errMsg(err)
+		}
+		return condenseMsg(resp)
+	}
+}
+
 func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
@@ -118,9 +164,18 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.spinner, spCmd = m.spinner.Update(msg)
 
 	switch msg := msg.(type) {
+	case condenseMsg:
+		m.loading = false
+		summary := string(msg)
+		// Reset history and append summary as the first message
+		m.history = []local_ai.Message{{Role: "model", Content: "Summary of previous conversation: " + summary}}
+		m.messages = []string{m.senderStyle.Render("Bot: ") + "Condensing conversation completed. Context cleared and summary added."}
+		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.viewport.GotoBottom()
 	case cmdArgMsg:
 		m.loading = false
 		m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+string(msg))
+		m.history = append(m.history, local_ai.Message{Role: "model", Content: string(msg)})
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.viewport.GotoBottom()
 	case tea.WindowSizeMsg:
@@ -140,18 +195,38 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if m.textarea.Value() != "" {
-				m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
+				userMsg := m.textarea.Value()
+				if strings.TrimSpace(strings.ToLower(userMsg)) == "/condense" {
+					m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
+					m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+"Condensing conversation...")
+					m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+					m.textarea.Reset()
+					m.viewport.GotoBottom()
+					m.loading = true
+					return m, tea.Batch(
+						tiCmd,
+						vpCmd,
+						spCmd,
+						m.runCondenseFlow(),
+					)
+				}
+				m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
+				m.history = append(m.history, local_ai.Message{Role: "user", Content: userMsg})
 				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 				m.textarea.Reset()
 				m.viewport.GotoBottom()
 				m.loading = true
+				var cmd tea.Cmd
+				if strings.Contains(strings.ToLower(userMsg), "generate") {
+					cmd = m.runGenerateFlow(userMsg)
+				} else {
+					cmd = m.runChatFlow(userMsg)
+				}
 				return m, tea.Batch(
 					tiCmd,
 					vpCmd,
 					spCmd,
-					tea.Tick(time.Second, func(t time.Time) tea.Msg {
-						return cmdArgMsg("Message received!")
-					}),
+					cmd,
 				)
 			}
 		}
@@ -159,6 +234,10 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// We handle errors just like any other message
 	case errMsg:
 		m.err = msg
+		m.loading = false
+		m.messages = append(m.messages, m.senderStyle.Render("Error: ")+msg.Error())
+		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.viewport.GotoBottom()
 		return m, nil
 	}
 

@@ -27,6 +27,15 @@ The system follows a predictable "Pull, Sanitize, Plan, Write" pipeline:
 3.  **Plan:** The LLM (acting as a planner) proposes modifications based on the context and user intent.
 4.  **Write:** The system applies approved "surgical" updates to the daily note sections.
 
+## Prerequisites
+
+- **Go:** 1.25.4 or higher.
+- **Ollama:** Installed and running locally. [Download Ollama](https://ollama.com/).
+- **LLM Model:** The `llama3.1` model must be pulled in Ollama:
+  ```bash
+  ollama pull llama3.1
+  ```
+
 ## Tech Stack
 
 - **Language:** Go
