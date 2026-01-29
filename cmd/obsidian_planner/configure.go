@@ -50,12 +50,12 @@ func initialConfigureModel() configureModel {
 		t.Width = 20
 		switch i {
 		case 0:
-			t.Placeholder = "iCal Url"
-			t.SetValue(cfg.CalendarUrl)
+			t.Placeholder = "Jira Base URL (e.g. https://your-domain.atlassian.net)"
+			t.SetValue(cfg.JiraBaseUrl)
 			t.Focus()
 			t.PromptStyle = focusedStyle
 			t.TextStyle = focusedStyle
-			t.Width = 20
+			t.Width = 50
 		case 1:
 			t.Placeholder = "Jira Email"
 			t.SetValue(cfg.JiraEmail)
@@ -107,7 +107,7 @@ func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if s == "enter" && m.focusIndex == len(m.inputs) {
 				m.submitted = true
 				cfg := &configuration.Config{
-					CalendarUrl: m.inputs[0].Value(),
+					JiraBaseUrl: m.inputs[0].Value(),
 					JiraEmail:   m.inputs[1].Value(),
 					JiraToken:   m.inputs[2].Value(),
 				}
