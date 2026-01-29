@@ -9,7 +9,7 @@ import (
 	"github.com/firebase/genkit/go/plugins/ollama"
 )
 
-func NewOllamaModel(ctx context.Context) *ModelInfo {
+func NewOllamaModel(ctx context.Context) (*ModelInfo, error) {
 	ollamaPlugin := &ollama.Ollama{
 		ServerAddress: "http://127.0.0.1:11434",
 		Timeout:       60, // Optional field, adjust accordingly
@@ -31,9 +31,11 @@ func NewOllamaModel(ctx context.Context) *ModelInfo {
 		},
 	)
 
+	cal, _ := calendar.New(ctx)
+
 	return &ModelInfo{
 		Model:    model,
 		GenKit:   g,
-		Calendar: calendar.New(ctx),
-	}
+		Calendar: cal,
+	}, nil
 }

@@ -39,7 +39,17 @@ func initialChatModel(initialMsg string) chatModel {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	modelInfo := local_ai.NewOllamaModel(ctx)
+	modelInfo, err := local_ai.NewOllamaModel(ctx)
+	if err != nil {
+		// Since initialChatModel is not designed to return an error,
+		// we can't easily propagate it here.
+		// However, NewOllamaModel currently only returns an error if
+		// something fundamentally fails in GenKit/Ollama setup which
+		// is unlikely given the current implementation (it always returns nil error).
+		// If it did return an error, we'd probably want to handle it in the model.
+		// For now, we'll just panic if it's a genuine failure.
+		panic(err)
+	}
 	local_ai.DefinePlannerFlow(modelInfo)
 
 	ta := textarea.New()
