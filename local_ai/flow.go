@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"obsidian-ai-planner/calendar"
+	"obsidian-ai-planner/jira"
 	"time"
 
 	"github.com/firebase/genkit/go/ai"
@@ -14,6 +15,7 @@ type ModelInfo struct {
 	GenKit   *genkit.Genkit
 	Model    ai.Model
 	Calendar *calendar.GoogleCalendarIntegration
+	Jira     *jira.JiraIntegration
 }
 
 type Message struct {
@@ -38,8 +40,16 @@ func (m *ModelInfo) fetchContext(ctx context.Context) (*InternalPlannerContext, 
 	weeklyGoals := "Plan for project unicorn, Review roadmap, Improve test coverage 10%"
 	// TODO: Pull from Daily Note
 	currentTasks := []string{}
-	// TODO: Pull from Jira
-	jiraTickets := []string{"Jira-123: Update db", "Jira-456: Fix bug on backend"}
+
+	jiraTickets := []string{"Jira-123: Update db (Mock)", "Jira-456: Fix bug on backend (Mock)"}
+	if m.Jira != nil {
+		tickets, err := m.Jira.GetAssignedTickets()
+		if err == nil {
+			jiraTickets = tickets
+		} else {
+			fmt.Printf("Warning: failed to fetch Jira tickets: %v\n", err)
+		}
+	}
 
 	var calendarEvents []calendar.Event
 	if m.Calendar != nil {
