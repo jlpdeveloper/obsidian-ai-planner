@@ -13,6 +13,9 @@ config.json
 credentials.json
 token.json
 
+# Local test tools
+cmd/jira_test/
+
 # Test binary, built with `go test -c`
 *.test
 

@@ -3,6 +3,7 @@ package local_ai
 import (
 	"context"
 	"obsidian-ai-planner/calendar"
+	"obsidian-ai-planner/jira"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -32,10 +33,12 @@ func NewOllamaModel(ctx context.Context) (*ModelInfo, error) {
 	)
 
 	cal, _ := calendar.New(ctx)
+	ji, _ := jira.New()
 
 	return &ModelInfo{
 		Model:    model,
 		GenKit:   g,
 		Calendar: cal,
+		Jira:     ji,
 	}, nil
 }

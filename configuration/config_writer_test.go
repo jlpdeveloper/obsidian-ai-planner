@@ -16,9 +16,9 @@ func TestConfig_WriteAndLoad(t *testing.T) {
 	}()
 
 	cfg := &Config{
-		CalendarUrl: "https://example.com/cal.ics",
 		JiraEmail:   "test@example.com",
 		JiraToken:   "secret_token",
+		JiraBaseUrl: "https://test.atlassian.net",
 	}
 
 	// Test Write
@@ -40,8 +40,8 @@ func TestConfig_WriteAndLoad(t *testing.T) {
 	}
 
 	// Verify data
-	if newCfg.CalendarUrl != cfg.CalendarUrl {
-		t.Errorf("Expected CalendarUrl %s, got %s", cfg.CalendarUrl, newCfg.CalendarUrl)
+	if newCfg.JiraBaseUrl != cfg.JiraBaseUrl {
+		t.Errorf("Expected JiraBaseUrl %s, got %s", cfg.JiraBaseUrl, newCfg.JiraBaseUrl)
 	}
 	if newCfg.JiraEmail != cfg.JiraEmail {
 		t.Errorf("Expected JiraEmail %s, got %s", cfg.JiraEmail, newCfg.JiraEmail)
