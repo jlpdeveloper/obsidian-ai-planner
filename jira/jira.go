@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"obsidian-ai-planner/configuration"
+	"regexp"
 
 	"github.com/andygrunwald/go-jira/v2/cloud"
 )
@@ -54,10 +55,16 @@ func (j *JiraIntegration) GetAssignedTickets() ([]string, error) {
 		return nil, fmt.Errorf("failed to search jira issues: %w", err)
 	}
 
+	return j.processIssues(issues), nil
+}
+
+func (j *JiraIntegration) processIssues(issues []cloud.Issue) []string {
 	var tickets []string
+	accountRegex := regexp.MustCompile(`\b\d{6,17}\b`)
 	for _, issue := range issues {
-		tickets = append(tickets, fmt.Sprintf("%s: %s", issue.Key, issue.Fields.Summary))
+		summary := accountRegex.ReplaceAllString(issue.Fields.Summary, "[ACCOUNT_NUMBER]")
+		tickets = append(tickets, fmt.Sprintf("%s: %s", issue.Key, summary))
 	}
 
-	return tickets, nil
+	return tickets
 }
