@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"obsidian-ai-planner/configuration"
 	"regexp"
+	"time"
 
 	"github.com/andygrunwald/go-jira/v2/cloud"
 )
@@ -43,14 +44,18 @@ func New() (*JiraIntegration, error) {
 	}, nil
 }
 
-func (j *JiraIntegration) GetAssignedTickets() ([]string, error) {
+func (j *JiraIntegration) GetAssignedTickets(ctx context.Context) ([]string, error) {
 	// JQL to get tickets assigned to the current user that are not closed
 	jql := "assignee = currentUser() AND statusCategory != Done"
 	options := &cloud.SearchOptionsV2{
 		Fields: []string{"key", "summary"},
 	}
-	// Using context.Background() as a default
-	issues, _, err := j.client.Issue.SearchV2JQL(context.Background(), jql, options)
+
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	// Pass that ctx into the Jira API call
+	issues, _, err := j.client.Issue.SearchV2JQL(ctx, jql, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search jira issues: %w", err)
 	}

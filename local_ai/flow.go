@@ -43,7 +43,7 @@ func (m *ModelInfo) fetchContext(ctx context.Context) (*InternalPlannerContext, 
 
 	jiraTickets := []string{"Jira-123: Update db (Mock)", "Jira-456: Fix bug on backend (Mock)"}
 	if m.Jira != nil {
-		tickets, err := m.Jira.GetAssignedTickets()
+		tickets, err := m.Jira.GetAssignedTickets(ctx)
 		if err == nil {
 			jiraTickets = tickets
 		} else {
