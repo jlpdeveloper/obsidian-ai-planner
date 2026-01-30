@@ -1,14 +1,15 @@
 package jira
 
 import (
+	"context"
 	"fmt"
 	"obsidian-ai-planner/configuration"
 
-	"github.com/andygrunwald/go-jira"
+	"github.com/andygrunwald/go-jira/v2/cloud"
 )
 
 type JiraIntegration struct {
-	client *jira.Client
+	client *cloud.Client
 }
 
 func New() (*JiraIntegration, error) {
@@ -22,12 +23,16 @@ func New() (*JiraIntegration, error) {
 		return nil, fmt.Errorf("jira configuration is incomplete")
 	}
 
-	tp := jira.BasicAuthTransport{
+	// In v2/cloud, we use BasicAuthTransport or similar, but the example shows a simpler approach
+	// or assumes the client is created with a transport.
+	// Actually, the example uses cloud.NewClient.
+
+	tp := cloud.BasicAuthTransport{
 		Username: cfg.JiraEmail,
-		Password: cfg.JiraToken,
+		APIToken: cfg.JiraToken,
 	}
 
-	client, err := jira.NewClient(tp.Client(), cfg.JiraBaseUrl)
+	client, err := cloud.NewClient(cfg.JiraBaseUrl, tp.Client())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create jira client: %w", err)
 	}
@@ -40,8 +45,11 @@ func New() (*JiraIntegration, error) {
 func (j *JiraIntegration) GetAssignedTickets() ([]string, error) {
 	// JQL to get tickets assigned to the current user that are not closed
 	jql := "assignee = currentUser() AND statusCategory != Done"
-
-	issues, _, err := j.client.Issue.Search(jql, nil)
+	options := &cloud.SearchOptionsV2{
+		Fields: []string{"key", "summary"},
+	}
+	// Using context.Background() as a default
+	issues, _, err := j.client.Issue.SearchV2JQL(context.Background(), jql, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search jira issues: %w", err)
 	}
