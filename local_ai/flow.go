@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"obsidian-ai-planner/calendar"
 	"obsidian-ai-planner/jira"
+	"obsidian-ai-planner/obsidian"
 	"time"
 
 	"github.com/firebase/genkit/go/ai"
@@ -12,10 +13,11 @@ import (
 )
 
 type ModelInfo struct {
-	GenKit   *genkit.Genkit
-	Model    ai.Model
-	Calendar *calendar.GoogleCalendarIntegration
-	Jira     *jira.JiraIntegration
+	GenKit        *genkit.Genkit
+	Model         ai.Model
+	Calendar      *calendar.GoogleCalendarIntegration
+	Jira          *jira.JiraIntegration
+	ObsidianVault string
 }
 
 type Message struct {
@@ -36,10 +38,29 @@ type InternalPlannerContext struct {
 }
 
 func (m *ModelInfo) fetchContext(ctx context.Context) (*InternalPlannerContext, error) {
-	// TODO: Pull from Obsidian
-	weeklyGoals := "Plan for project unicorn, Review roadmap, Improve test coverage 10%"
-	// TODO: Pull from Daily Note
+	now := time.Now()
+	weeklyGoals := ""
 	currentTasks := []string{}
+
+	if m.ObsidianVault != "" {
+		// Fetch Weekly Goals
+		weeklyPath := obsidian.GetWeeklyNotePath(m.ObsidianVault, now)
+		goals, err := obsidian.ReadSection(weeklyPath, "Weekly Goals")
+		if err == nil {
+			weeklyGoals = goals
+		} else {
+			fmt.Printf("Warning: failed to fetch weekly goals: %v\n", err)
+		}
+
+		// Fetch Daily Tasks
+		dailyPath := obsidian.GetDailyNotePath(m.ObsidianVault, now)
+		tasks, err := obsidian.ReadSection(dailyPath, "Tasks")
+		if err == nil {
+			currentTasks = []string{tasks}
+		} else {
+			fmt.Printf("Warning: failed to fetch daily tasks: %v\n", err)
+		}
+	}
 
 	jiraTickets := []string{"Jira-123: Update db (Mock)", "Jira-456: Fix bug on backend (Mock)"}
 	if m.Jira != nil {

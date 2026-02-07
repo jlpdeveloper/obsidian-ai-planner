@@ -3,6 +3,7 @@ package local_ai
 import (
 	"context"
 	"obsidian-ai-planner/calendar"
+	"obsidian-ai-planner/configuration"
 	"obsidian-ai-planner/jira"
 
 	"github.com/firebase/genkit/go/ai"
@@ -35,10 +36,17 @@ func NewOllamaModel(ctx context.Context) (*ModelInfo, error) {
 	cal, _ := calendar.New(ctx)
 	ji, _ := jira.New()
 
+	vaultPath := ""
+	cfg := &configuration.Config{}
+	if err := cfg.LoadFromFile(); err == nil {
+		vaultPath = cfg.ObsidianVault
+	}
+
 	return &ModelInfo{
-		Model:    model,
-		GenKit:   g,
-		Calendar: cal,
-		Jira:     ji,
+		Model:         model,
+		GenKit:        g,
+		Calendar:      cal,
+		Jira:          ji,
+		ObsidianVault: vaultPath,
 	}, nil
 }
