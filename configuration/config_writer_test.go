@@ -16,9 +16,10 @@ func TestConfig_WriteAndLoad(t *testing.T) {
 	}()
 
 	cfg := &Config{
-		JiraEmail:   "test@example.com",
-		JiraToken:   "secret_token",
-		JiraBaseUrl: "https://test.atlassian.net",
+		JiraEmail:     "test@example.com",
+		JiraToken:     "secret_token",
+		JiraBaseUrl:   "https://test.atlassian.net",
+		ObsidianVault: "/path/to/vault",
 	}
 
 	// Test Write
@@ -48,6 +49,9 @@ func TestConfig_WriteAndLoad(t *testing.T) {
 	}
 	if newCfg.JiraToken != cfg.JiraToken {
 		t.Errorf("Expected JiraToken %s, got %s", cfg.JiraToken, newCfg.JiraToken)
+	}
+	if newCfg.ObsidianVault != cfg.ObsidianVault {
+		t.Errorf("Expected ObsidianVault %s, got %s", cfg.ObsidianVault, newCfg.ObsidianVault)
 	}
 }
 

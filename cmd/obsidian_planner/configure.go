@@ -35,7 +35,7 @@ type configureModel struct {
 
 func initialConfigureModel() configureModel {
 	m := configureModel{
-		inputs: make([]textinput.Model, 3),
+		inputs: make([]textinput.Model, 4),
 	}
 
 	cfg := &configuration.Config{}
@@ -65,6 +65,10 @@ func initialConfigureModel() configureModel {
 			t.SetValue(cfg.JiraToken)
 			t.EchoMode = textinput.EchoPassword
 			t.EchoCharacter = '•'
+		case 3:
+			t.Placeholder = "Obsidian Vault Path"
+			t.SetValue(cfg.ObsidianVault)
+			t.Width = 50
 		}
 
 		m.inputs[i] = t
@@ -107,9 +111,10 @@ func (m configureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if s == "enter" && m.focusIndex == len(m.inputs) {
 				m.submitted = true
 				cfg := &configuration.Config{
-					JiraBaseUrl: m.inputs[0].Value(),
-					JiraEmail:   m.inputs[1].Value(),
-					JiraToken:   m.inputs[2].Value(),
+					JiraBaseUrl:   m.inputs[0].Value(),
+					JiraEmail:     m.inputs[1].Value(),
+					JiraToken:     m.inputs[2].Value(),
+					ObsidianVault: m.inputs[3].Value(),
 				}
 				err := cfg.Write()
 				if err != nil {
