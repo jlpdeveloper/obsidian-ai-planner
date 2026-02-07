@@ -2,22 +2,16 @@ package local_ai
 
 import (
 	"context"
-	"fmt"
-	"obsidian-ai-planner/calendar"
-	"obsidian-ai-planner/jira"
-	"obsidian-ai-planner/obsidian"
-	"time"
+	"obsidian-ai-planner/planner"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 )
 
 type ModelInfo struct {
-	GenKit        *genkit.Genkit
-	Model         ai.Model
-	Calendar      *calendar.GoogleCalendarIntegration
-	Jira          *jira.JiraIntegration
-	ObsidianVault string
+	GenKit         *genkit.Genkit
+	Model          ai.Model
+	PlannerService *planner.PlannerService
 }
 
 type Message struct {
@@ -30,122 +24,13 @@ type PlannerInput struct {
 	History    []Message `json:"history"`
 }
 
-type InternalPlannerContext struct {
-	WeeklyGoals  string           `json:"weeklyGoals"`
-	Calendar     []calendar.Event `json:"calendar"`
-	JiraTickets  []string         `json:"jiraTickets"`
-	CurrentTasks []string         `json:"currentTasks"`
-}
-
-func (m *ModelInfo) fetchContext(ctx context.Context) (*InternalPlannerContext, error) {
-	now := time.Now()
-	weeklyGoals := ""
-	currentTasks := []string{}
-
-	if m.ObsidianVault != "" {
-		// Fetch Weekly Goals
-		weeklyPath := obsidian.GetWeeklyNotePath(m.ObsidianVault, now)
-		goals, err := obsidian.ReadSection(weeklyPath, "Weekly Goals")
-		if err == nil {
-			weeklyGoals = goals
-		} else {
-			fmt.Printf("Warning: failed to fetch weekly goals: %v\n", err)
-		}
-
-		// Fetch Daily Tasks
-		dailyPath := obsidian.GetDailyNotePath(m.ObsidianVault, now)
-		tasks, err := obsidian.ReadSection(dailyPath, "Tasks")
-		if err == nil {
-			currentTasks = []string{tasks}
-		} else {
-			fmt.Printf("Warning: failed to fetch daily tasks: %v\n", err)
-		}
-	}
-
-	jiraTickets := []string{"Jira-123: Update db (Mock)", "Jira-456: Fix bug on backend (Mock)"}
-	if m.Jira != nil {
-		tickets, err := m.Jira.GetAssignedTickets(ctx)
-		if err == nil {
-			jiraTickets = tickets
-		} else {
-			fmt.Printf("Warning: failed to fetch Jira tickets: %v\n", err)
-		}
-	}
-
-	var calendarEvents []calendar.Event
-	if m.Calendar != nil {
-		// Today's date helper
-		now := time.Now()
-		year, month, day := now.Date()
-		today := time.Date(year, month, day, 0, 0, 0, 0, now.Location())
-
-		events, err := m.Calendar.GetCalendarEvents(today)
-		if err != nil {
-			return nil, err
-		}
-		calendarEvents = events
-	}
-
-	return &InternalPlannerContext{
-		WeeklyGoals:  weeklyGoals,
-		Calendar:     calendarEvents,
-		JiraTickets:  jiraTickets,
-		CurrentTasks: currentTasks,
-	}, nil
-}
-
 func (m *ModelInfo) Chat(ctx context.Context, input PlannerInput) (string, error) {
-	pContext, err := m.fetchContext(ctx)
+	pContext, err := m.PlannerService.FetchContext(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	systemPrompt := fmt.Sprintf(`
-	You are an opinionated personal planning analyst assisting a software engineer with their day.
-
-You have no access to outside tools, memory, or systems beyond the data provided in this message.
-You must reason only from the supplied goals, calendar events, Jira tickets, and tasks.
-
-Your primary responsibility is to assess overcommitment.
-
-Overcommitment means:
-Planned work + context switching + cognitive overhead exceeds realistic daily capacity.
-
-You are allowed to:
-- Estimate task effort when no duration is provided
-- Make reasonable assumptions about a standard workday
-- Apply an overhead factor for meetings and context switching (state your assumptions)
-- Be uncertain but still decisive
-
-You are encouraged to:
-- Call out when the plan does not mathematically fit in the day
-- Point out hidden overload, fragmentation, or unrealistic sequencing
-- Push back on priorities when trade-offs are required
-
-You should:
-- Look for alignment between weekly goals and Jira tickets
-- Treat calendar events as hard constraints
-- Treat tasks and tickets as flexible unless stated otherwise
-
-You should NOT:
-- Attempt to optimize or rewrite the full day
-- Generate a complete daily note
-- Store or assume long-term user behavior
-
-Tone and format:
-- Be concise, conversational, and direct
-- Prefer clear assertions over vague suggestions
-- If the day appears overcommitted, say so plainly
-
-Inputs:
-Current Weekly Goals: %s
-Calendar Events: %v
-Jira Tickets: %v
-Current Tasks: %v
-
-Respond by discussing the plan, highlighting risks or mismatches, or answering the user's question.
-
-`, pContext.WeeklyGoals, pContext.Calendar, pContext.JiraTickets, pContext.CurrentTasks)
+	systemPrompt := planner.BuildSystemPrompt(pContext)
 
 	var messages []*ai.Message
 	messages = append(messages, ai.NewSystemMessage(ai.NewTextPart(systemPrompt)))
@@ -172,21 +57,12 @@ Respond by discussing the plan, highlighting risks or mismatches, or answering t
 }
 
 func (m *ModelInfo) GeneratePlan(ctx context.Context, input PlannerInput) (string, error) {
-	pContext, err := m.fetchContext(ctx)
+	pContext, err := m.PlannerService.FetchContext(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	systemPrompt := fmt.Sprintf(`
-You are a personal AI planner. Your goal is to help a software engineer plan their day by generating structured updates for their daily note.
-Current Weekly Goals: %s
-Calendar Events: %v
-Jira Tickets: %v
-Current Tasks: %v
-
-Please generate the content for the 'Goals', 'Meetings', and 'Bonus Items' sections. 
-Be specific and professional. Use Markdown format.
-`, pContext.WeeklyGoals, pContext.Calendar, pContext.JiraTickets, pContext.CurrentTasks)
+	systemPrompt := planner.BuildGeneratePlanPrompt(pContext)
 
 	var messages []*ai.Message
 	messages = append(messages, ai.NewSystemMessage(ai.NewTextPart(systemPrompt)))
@@ -213,7 +89,7 @@ Be specific and professional. Use Markdown format.
 }
 
 func (m *ModelInfo) Condense(ctx context.Context, history []Message) (string, error) {
-	systemPrompt := "You are a helpful assistant. Summarize the following conversation history concisely, preserving all key decisions, tasks, and context. This summary will be used as the starting point for a new conversation session."
+	systemPrompt := planner.BuildCondensePrompt()
 
 	var messages []*ai.Message
 	messages = append(messages, ai.NewSystemMessage(ai.NewTextPart(systemPrompt)))

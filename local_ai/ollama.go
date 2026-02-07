@@ -5,6 +5,7 @@ import (
 	"obsidian-ai-planner/calendar"
 	"obsidian-ai-planner/configuration"
 	"obsidian-ai-planner/jira"
+	"obsidian-ai-planner/planner"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -43,10 +44,12 @@ func NewOllamaModel(ctx context.Context) (*ModelInfo, error) {
 	}
 
 	return &ModelInfo{
-		Model:         model,
-		GenKit:        g,
-		Calendar:      cal,
-		Jira:          ji,
-		ObsidianVault: vaultPath,
+		Model:  model,
+		GenKit: g,
+		PlannerService: &planner.PlannerService{
+			Calendar:      cal,
+			Jira:          ji,
+			ObsidianVault: vaultPath,
+		},
 	}, nil
 }

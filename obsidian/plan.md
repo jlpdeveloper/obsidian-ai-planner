@@ -2,6 +2,15 @@
 
 This document outlines the focused strategy for reading specific sections from Obsidian daily and weekly notes to provide data for an AI agent.
 
+#### Architecture
+
+The project is organized into several key packages to ensure clarity and maintainability:
+
+- **`obsidian`**: Handles low-level file operations and parsing of Obsidian notes.
+- **`planner`**: The core business logic layer. It aggregates context from various sources (Obsidian, Jira, Calendar) and builds the prompt templates for the AI.
+- **`local_ai`**: Manages the interaction with the AI model (e.g., Ollama via GenKit). It remains agnostic of the specific business domain.
+- **`cmd/obsidian_planner`**: The TUI application layer, responsible for user interaction.
+
 #### Assumptions & File Discovery
 
 - **Existence**: Files are assumed to exist for the current period.

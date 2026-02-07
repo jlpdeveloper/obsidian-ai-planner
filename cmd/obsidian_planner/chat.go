@@ -155,12 +155,11 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
 		vpCmd tea.Cmd
+		spCmd tea.Cmd
 	)
 
 	m.textarea, tiCmd = m.textarea.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
-
-	var spCmd tea.Cmd
 	m.spinner, spCmd = m.spinner.Update(msg)
 
 	switch msg := msg.(type) {
@@ -169,7 +168,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		summary := string(msg)
 		// Reset history and append summary as the first message
 		m.history = []local_ai.Message{{Role: "model", Content: "Summary of previous conversation: " + summary}}
-		m.messages = []string{m.senderStyle.Render("Bot: ") + "Condensing conversation completed. Context cleared and summary added."}
+		m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+"Condensing conversation completed. Context cleared and summary added.")
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.viewport.GotoBottom()
 	case cmdArgMsg:
@@ -191,16 +190,16 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			fmt.Println(m.textarea.Value())
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if m.textarea.Value() != "" {
 				userMsg := m.textarea.Value()
+				m.textarea.Reset()
+
 				if strings.TrimSpace(strings.ToLower(userMsg)) == "/condense" {
 					m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
 					m.messages = append(m.messages, m.senderStyle.Render("Bot: ")+"Condensing conversation...")
 					m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
-					m.textarea.Reset()
 					m.viewport.GotoBottom()
 					m.loading = true
 					return m, tea.Batch(
@@ -210,18 +209,20 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.runCondenseFlow(),
 					)
 				}
+
 				m.messages = append(m.messages, m.senderStyle.Render("You: ")+userMsg)
 				m.history = append(m.history, local_ai.Message{Role: "user", Content: userMsg})
 				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
-				m.textarea.Reset()
 				m.viewport.GotoBottom()
 				m.loading = true
+
 				var cmd tea.Cmd
-				if strings.Contains(strings.ToLower(userMsg), "generate") {
+				if strings.HasPrefix(userMsg, "/generate") {
 					cmd = m.runGenerateFlow(userMsg)
 				} else {
 					cmd = m.runChatFlow(userMsg)
 				}
+
 				return m, tea.Batch(
 					tiCmd,
 					vpCmd,
