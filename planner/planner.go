@@ -64,7 +64,7 @@ func (s *PlannerService) FetchContext(ctx context.Context) (*PlannerContext, err
 		year, month, day := now.Date()
 		today := time.Date(year, month, day, 0, 0, 0, 0, now.Location())
 
-		events, err := s.Calendar.GetCalendarEvents(today)
+		events, err := s.Calendar.GetCalendarEvents(ctx, today)
 		if err != nil {
 			return nil, err
 		}

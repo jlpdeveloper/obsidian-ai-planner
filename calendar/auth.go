@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/option"
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
@@ -26,6 +29,31 @@ func getClient(config *oauth2.Config) *http.Client {
 		saveToken(tokFile, tok)
 	}
 	return config.Client(context.Background(), tok)
+}
+
+// ReAuthenticate forces a new token retrieval from the web.
+func (c *GoogleCalendarIntegration) ReAuthenticate(ctx context.Context) error {
+	b, err := os.ReadFile("credentials.json")
+	if err != nil {
+		return err
+	}
+
+	config, err := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
+	if err != nil {
+		return err
+	}
+
+	tok := getTokenFromWeb(config)
+	saveToken("token.json", tok)
+
+	client := config.Client(ctx, tok)
+	svr, err := calendar.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return err
+	}
+
+	c.calendarService = svr
+	return nil
 }
 
 // Request a token from the web, then returns the retrieved token.

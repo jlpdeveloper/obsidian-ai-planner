@@ -3,6 +3,7 @@ package calendar
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2/google"
@@ -48,13 +49,27 @@ type GoogleCalendarIntegration struct {
 	calendarService *calendar.Service
 }
 
-func (c GoogleCalendarIntegration) GetCalendarEvents(start time.Time) ([]Event, error) {
+func (c *GoogleCalendarIntegration) GetCalendarEvents(ctx context.Context, start time.Time) ([]Event, error) {
 	minTime := start.Format(time.RFC3339)
 	maxTime := start.Add(24 * time.Hour).Format(time.RFC3339)
 	events, err := c.calendarService.Events.List("primary").ShowDeleted(false).
 		SingleEvents(true).TimeMin(minTime).TimeMax(maxTime).MaxResults(10).OrderBy("startTime").Do()
 	if err != nil {
-		return nil, err
+		// Check if it's an oauth2 error (invalid_grant)
+		if strings.Contains(err.Error(), "invalid_grant") || strings.Contains(err.Error(), "expired") {
+			err = c.ReAuthenticate(ctx)
+			if err != nil {
+				return nil, err
+			}
+			// Retry once
+			events, err = c.calendarService.Events.List("primary").ShowDeleted(false).
+				SingleEvents(true).TimeMin(minTime).TimeMax(maxTime).MaxResults(10).OrderBy("startTime").Do()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	return filterEvents(events.Items), nil
 }
