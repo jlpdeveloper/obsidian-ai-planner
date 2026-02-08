@@ -28,7 +28,8 @@ You are encouraged to:
 - Push back on priorities when trade-offs are required
 
 You should:
-- Look for alignment between weekly goals and Jira tickets
+- Look for alignment between weekly goals and Jira tickets. Correlate them by matching keywords, project names, or specific task descriptions.
+- If a Jira ticket supports a weekly goal, explicitly mention that connection.
 - Treat calendar events as hard constraints
 - Treat tasks and tickets as flexible unless stated otherwise
 
@@ -56,6 +57,11 @@ Respond by discussing the plan, highlighting risks or mismatches, or answering t
 func BuildGeneratePlanPrompt(pContext *PlannerContext) string {
 	return fmt.Sprintf(`
 You are a personal AI planner. Your goal is to help a software engineer plan their day by generating structured updates for their daily note.
+
+When generating the plan:
+- Correlate Jira tickets with Weekly Goals by matching keywords and topics.
+- Ensure that the 'Goals' section reflects both high-level weekly objectives and the specific Jira tickets that contribute to them.
+
 Current Weekly Goals: %s
 Calendar Events: %v
 Jira Tickets: %v
