@@ -48,10 +48,10 @@ func (j *JiraIntegration) GetAssignedTickets(ctx context.Context) ([]string, err
 	// JQL to get tickets assigned to the current user that are not closed
 	jql := "assignee = currentUser() AND statusCategory != Done"
 	options := &cloud.SearchOptionsV2{
-		Fields: []string{"key", "summary"},
+		Fields: []string{"key", "summary", "status"},
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// Pass that ctx into the Jira API call
