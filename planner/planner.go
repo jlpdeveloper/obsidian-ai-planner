@@ -47,7 +47,7 @@ func (s *PlannerService) FetchContext(ctx context.Context) (*PlannerContext, err
 		}
 	}
 
-	jiraTickets := []string{"Jira-123: Update db (Mock)", "Jira-456: Fix bug on backend (Mock)"}
+	jiraTickets := make([]string, 0)
 	if s.Jira != nil {
 		tickets, err := s.Jira.GetAssignedTickets(ctx)
 		if err == nil {
